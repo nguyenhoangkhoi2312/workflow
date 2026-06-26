@@ -25,7 +25,16 @@ We recently completed a massive overhaul of the frontend architecture:
 ## Backend Architecture
 - **Offline / Ephemeral Setup**: The Electron main process spawns the frozen Python FastAPI binary on an ephemeral port. The React frontend makes local HTTP requests to it.
 - **AI Engine**: Uses the Google GenAI SDK to generate high-quality educational content when the user selects "AI Mode" and provides a valid `X-API-Key`.
-- **Algorithm Engine (Current Focus)**: When the user selects "Local Algorithm", the backend relies on deterministic Natural Language Processing (NLP) heuristics to generate content without an LLM.
+- **Algorithm Engine**: When the user selects "Local Algorithm", the backend relies on deterministic Natural Language Processing (NLP) heuristics to generate content without an LLM.
+
+### 1. Offline Natural Language Processing (NLP) Engine 
+We transformed the primitive backend fallbacks into deterministic, production-grade NLP algorithms using PyInstaller to package everything into a frozen binary.
+*   **Dependencies:** Added `spaCy`, `NLTK`, `pytextrank`, `pdfplumber`, `scikit-learn`, and `networkx`.
+*   **Flashcards (`nlp/flashcards.py`):** Uses `spaCy` dependency parsing to extract definitional noun-chunks and root verbs, generating reliable Q&A pairs.
+*   **Quizzes (`nlp/quizzes.py`):** Uses Named Entity Recognition (NER) to blank out subjects, and queries NLTK's `WordNet` ontologies to generate semantically related distractors.
+*   **Smart Notes (`nlp/notes.py`):** Uses `pytextrank` eigenvalue centrality to generate extractive summaries of the most crucial sentences.
+*   **Learning Paths (`nlp/pdf_toc.py`):** Uses `pdfplumber` to statistically infer font sizes, detecting chapter titles and exact page boundaries for interactive PDF chunks.
+*   **Advanced Features:** Added `spaced_repetition.py` (SM-2 scheduler), `readability.py` (text difficulty scoring), and `concept_map.py` (TF-IDF semantic clustering).
 
 ## Current Goal (For Claude)
 We need to drastically improve the **Local Algorithm** engine in the Python backend. Currently, it relies on extremely basic heuristics (e.g., splitting sentences and randomly blanking words) injected into `main.py`.
