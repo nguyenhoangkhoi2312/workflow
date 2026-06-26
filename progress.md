@@ -1,42 +1,39 @@
 # Project Progress & Context
 
 ## Overview
-This project is an AI-powered educational application inspired by Workflow. It provides users with personalized study tools like Flashcards, Quizzes, Smart Notes, and Learning Paths generated dynamically from their own uploaded study materials.
+This project is an advanced educational application designed to generate personalized study tools—such as Flashcards, Quizzes, Smart Notes, and Learning Paths—from uploaded study materials. The UI/UX is styled heavily after an elegant, premium design aesthetic (referred to internally as the "Omilearn" aesthetic) utilizing a maroon/cream color palette (`#8A334B`, `#3B6B59`, `#F8EFEA`, `#1B2A4E`).
 
 ## Tech Stack
-- **Frontend**: React, Vite, React Router (`HashRouter` for Electron compatibility), TailwindCSS, Lucide-React for icons.
+- **Frontend**: React, Vite, React Router (`HashRouter` for Electron), TailwindCSS (mostly vanilla inline CSS for core theming), Lucide-React.
 - **Backend**: Python, FastAPI, Uvicorn, Google GenAI SDK (Gemini).
-- **Packaging**: Electron (frontend wrapper) + PyInstaller (freezes the FastAPI backend into a standalone binary). The final output is a standalone macOS `.dmg`.
+- **Packaging**: Electron (frontend wrapper) + PyInstaller (freezes the FastAPI backend). Outputs to a standalone macOS `.dmg`.
 
-## Architecture
-- **Offline / Standalone Environment**: The application runs entirely offline. The Electron main process spawns the frozen Python FastAPI binary on an ephemeral port, enabling the React frontend to make local HTTP requests to the backend.
-- **Dynamic NLP & AI Engine**:
-  - The backend accepts requests (e.g., `/api/flashcards`, `/api/quizzes`, `/api/suggestions`).
-  - If a valid `X-API-Key` (Gemini API Key) is provided, it uses the Google GenAI SDK to generate high-quality educational content.
-  - If no API Key is provided (or if the user is completely offline), the backend seamlessly falls back to a deterministic **Natural Language Processing (NLP)** algorithm to generate flashcards and quizzes using text summarization and keyword extraction heuristics.
+## UI/UX Architecture & Recent Overhauls
+We recently completed a massive overhaul of the frontend architecture:
+1. **Contextual Studio Sidebar**: 
+   - Standalone pages for Flashcards, Quizzes, and Notes have been **deleted**. 
+   - We shifted to a "Workspace" model. Users view their documents in the `DocumentViewer` (Project Workspace), and use the `StudioSidebar` (right side) to trigger the generation of study materials via elegant modals (`CreateExamModal`, `UploadModal`, `StudyDocProgressModal`).
+2. **Interactive Exam Viewer (`/exam/:id`)**:
+   - A stunning 3-column layout for taking exams.
+   - **Left:** Interactive questions (Multiple Choice and Short Answer/Điền khuyết) with an "Instant Reveal" (Hiện đáp án & Giải thích luôn) toggle.
+   - **Center:** Control panel (timer, submit button, animated trophy score).
+   - **Right:** Source Document viewer, allowing users to reference the PDF/text while taking the exam.
+3. **Settings & Dual Engine Mode**:
+   - The `/settings` page features an "Engine Mode" toggle.
+   - Users can choose between **Google Gemini AI** (requires an API key, connects to Google) and **Local Algorithm** (runs purely on local Python NLP heuristic scripts).
 
-## Recently Completed Features
-1. **Local File Library & Uploads**:
-   - Built a custom `storage.js` helper utilizing `localStorage`.
-   - Users can now upload `.txt` and `.md` files via the `DocumentExplorer` page.
-   - Files are securely stored locally and rendered via `DocumentViewer`.
-2. **Dashboard AI Suggestion Engine**:
-   - Added a `POST /api/suggestions` endpoint.
-   - When the user opens the app, the frontend aggregates the text from all their uploaded documents and queries the backend.
-   - The backend analyzes the corpus and recommends a tailored Learning Path, Quiz topic, and Flashcard topic.
-3. **Settings & API Configuration**:
-   - Built a `/settings` page to allow users to securely inject their Gemini API key into the app's `localStorage`.
-   - Updated the `api.js` wrapper to attach this key as an `X-API-Key` header on every request.
-4. **PyInstaller + Electron Compilation Fixes**:
-   - Fixed `uvicorn` issues with PyInstaller freezing by checking `getattr(sys, 'frozen', False)`.
-   - Integrated the backend build step `pyinstaller --name workflow-backend --noconfirm main.py` directly into the Node build scripts.
+## Backend Architecture
+- **Offline / Ephemeral Setup**: The Electron main process spawns the frozen Python FastAPI binary on an ephemeral port. The React frontend makes local HTTP requests to it.
+- **AI Engine**: Uses the Google GenAI SDK to generate high-quality educational content when the user selects "AI Mode" and provides a valid `X-API-Key`.
+- **Algorithm Engine (Current Focus)**: When the user selects "Local Algorithm", the backend relies on deterministic Natural Language Processing (NLP) heuristics to generate content without an LLM.
 
-## Current Status
-- The `.dmg` application has been successfully built and packaged for `mac-arm64`.
-- All features (AI, NLP Fallbacks, File Uploads, Suggestion Engine, Settings) are functional.
-- The user is currently testing the latest release binary.
+## Current Goal (For Claude)
+We need to drastically improve the **Local Algorithm** engine in the Python backend. Currently, it relies on extremely basic heuristics (e.g., splitting sentences and randomly blanking words) injected into `main.py`.
 
-## Next Steps
-- Gather feedback from the user on the algorithmic/NLP fallback outputs.
-- Consider adding local SQLite support instead of `localStorage` if the user's document corpus grows larger than the 5MB limit.
-- Consider adding PDF parsing support to the Python backend (e.g., using `PyMuPDF` or `pdfplumber`).
+The intended functionality is to build a robust, completely offline, non-LLM Python NLP pipeline using libraries like `spaCy`, `NLTK`, `TextRank`, `PyPDF2`, or `YAKE` to:
+1. Extract Flashcards (keyword extraction, definition parsing).
+2. Generate Quizzes (factual sentence extraction, Named Entity blanking, distractor generation via WordNet/embeddings).
+3. Generate Smart Notes (extractive text summarization).
+4. Extract structural Learning Paths (parsing PDF Table of Contents and headers).
+
+**Context for Claude:** We are building this non-AI algorithm *first* so that the application has a flawless, free, offline baseline functionality before users are ever required to input an AI API key. Please research and propose the architectural algorithms and Python pipelines to achieve this!
