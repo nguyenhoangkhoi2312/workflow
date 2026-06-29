@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { X, UploadCloud, BookOpen } from 'lucide-react';
 
-const CreateStudyDocModal = ({ isOpen, onClose, projectId, documentId, onSuccess }) => {
+const CreateLessonPlanModal = ({ isOpen, onClose, projectId, documentId, onSuccess }) => {
   const activeDocId = documentId || (() => { const match = window.location.hash.match(/#\/document\/([^/]+)/); return match ? parseInt(match[1], 10) : null; })();
-  const [title, setTitle] = useState("Tài liệu phòng thi 26/6/2026");
+  const [title, setTitle] = useState("Giáo án 1 tiết - Tiêu hóa ở dạ dày");
   const [description, setDescription] = useState("");
   const [target, setTarget] = useState("");
-  const [length, setLength] = useState("Độ dài vừa phải (Tổng hợp lý thuyết & So sánh)");
+  const [length, setLength] = useState("Chuẩn giáo án 45 phút");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -21,18 +21,18 @@ const CreateStudyDocModal = ({ isOpen, onClose, projectId, documentId, onSuccess
         document_id: activeDocId ? parseInt(activeDocId) : null,
       };
       
-      const res = await fetch('http://127.0.0.1:8000/api/generate_exam_prep', {
+      const res = await fetch('http://127.0.0.1:8000/api/generate_study_plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       
       if (res.ok) {
-        alert("Tạo tài liệu phòng thi thành công!");
+        alert("Tạo Giáo án thành công!");
         if (onSuccess) onSuccess();
         onClose();
       } else {
-        alert("Tạo tài liệu phòng thi thất bại.");
+        alert("Tạo Giáo án thất bại.");
       }
     } catch (e) {
       console.error(e);
@@ -56,7 +56,7 @@ const CreateStudyDocModal = ({ isOpen, onClose, projectId, documentId, onSuccess
         <div style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', position: 'sticky', top: 0, backgroundColor: '#FCFAF8', zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <BookOpen size={20} color="#8B4B6E" />
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#1B2A4E' }}>Cấu hình Tài liệu phòng thi</h2>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#1B2A4E' }}>Cấu hình Giáo án giảng dạy</h2>
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: '1px solid var(--border-medium)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)' }}>
             <X size={16} />
@@ -67,7 +67,7 @@ const CreateStudyDocModal = ({ isOpen, onClose, projectId, documentId, onSuccess
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>TIÊU ĐỀ TÀI LIỆU</label>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>TIÊU ĐỀ GIÁO ÁN</label>
             <input 
               type="text" 
               value={title}
@@ -87,26 +87,26 @@ const CreateStudyDocModal = ({ isOpen, onClose, projectId, documentId, onSuccess
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>MỤC TIÊU ÔN TẬP / PHÒNG THI</label>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>ĐỐI TƯỢNG HỌC SINH</label>
             <input 
               type="text" 
               value={target}
               onChange={(e) => setTarget(e.target.value)}
-              placeholder="Ví dụ: Ôn thi giữa kỳ, Tổng hợp công thức cốt lõi..." 
+              placeholder="Ví dụ: Học sinh lớp 8, người đi làm mất gốc..." 
               style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-medium)', backgroundColor: '#FDF8F5', fontSize: '0.9rem' }} 
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>ĐỘ DÀI TÀI LIỆU</label>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>THỜI LƯỢNG TIẾT HỌC</label>
             <select 
               value={length}
               onChange={(e) => setLength(e.target.value)}
               style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-medium)', backgroundColor: '#FDF8F5', fontSize: '0.9rem' }}
             >
-              <option>Độ dài vừa phải (Tổng hợp lý thuyết & So sánh)</option>
-              <option>Ngắn gọn (Chỉ gồm các bullet point chính)</option>
-              <option>Rất chi tiết (Toàn bộ lý thuyết, ví dụ)</option>
+              <option>Chuẩn giáo án 45 phút</option>
+              <option>Giáo án 90 phút</option>
+              <option>Kịch bản workshop 2 tiếng</option>
             </select>
           </div>
 
@@ -146,7 +146,7 @@ const CreateStudyDocModal = ({ isOpen, onClose, projectId, documentId, onSuccess
               cursor: isSubmitting ? 'not-allowed' : 'pointer' 
             }}
           >
-            {isSubmitting ? "Đang tạo..." : "Tạo tài liệu"}
+            {isSubmitting ? "Đang tạo..." : "Tạo Giáo án"}
           </button>
         </div>
       </div>
@@ -154,4 +154,4 @@ const CreateStudyDocModal = ({ isOpen, onClose, projectId, documentId, onSuccess
   );
 };
 
-export default CreateStudyDocModal;
+export default CreateLessonPlanModal;
