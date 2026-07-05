@@ -1,7 +1,7 @@
 # Project Progress & Context
 
 ## Overview
-This project is an advanced offline-first educational application designed to generate personalized study tools—such as Flashcards, Quizzes, Smart Notes, and Concept Maps—from uploaded study materials. The UI/UX is styled heavily after an elegant, premium design aesthetic (referred to internally as the "Omilearn" aesthetic) utilizing a maroon/cream/navy color palette.
+This project is an advanced offline-first educational application designed to generate personalized study tools—such as Flashcards, Quizzes, Smart Notes, and Concept Maps—from uploaded study materials. The UI/UX is styled heavily after an elegant, premium design aesthetic (referred to internally as the "Workflow" aesthetic) utilizing a maroon/cream/navy color palette.
 
 ## Tech Stack
 - **Frontend**: React, Vite, React Router, TailwindCSS/Vanilla CSS, Lucide-React, React Flow (for Concept Maps), React Markdown (for Notes).
@@ -15,7 +15,7 @@ This project is an advanced offline-first educational application designed to ge
 
 ## Backend Architecture
 - **Offline / Ephemeral Setup**: The Electron main process (`electron/main.cjs`) dynamically spawns the frozen Python FastAPI binary (`backend/dist/workflow-backend/workflow-backend`).
-- **SQLite Database (`omilearn_local.db`)**: Handles state persistence for Flashcards, Documents, Quiz Scores, and SM-2 Spaced Repetition scheduling metrics.
+- **SQLite Database (`workflow_local.db`)**: Handles state persistence for Flashcards, Documents, Quiz Scores, and SM-2 Spaced Repetition scheduling metrics.
 
 ### 1. Offline Natural Language Processing (NLP) Engine (Phases 1-5)
 The backend relies on robust deterministic NLP heuristics to generate content without an LLM.
@@ -25,8 +25,8 @@ The backend relies on robust deterministic NLP heuristics to generate content wi
 *   **Learning Paths (`nlp/pdf_toc.py`):** Uses `pdfplumber` to statistically infer font sizes, detecting chapter titles and exact page boundaries.
 
 ### 2. Persistence & Sync Architecture (Phases 6-9)
-*   **Phase 6 (SQLite Persistence):** Implemented `SQLAlchemy` to store Flashcard generation and SM-2 review states in a local SQLite database (`omilearn_local.db`).
-*   **Phase 7 (Native Cloud Sync):** Bypassed complex OAuth integrations. Users select their local Google Drive or OneDrive folder via an Electron native dialog (`CloudSyncModal`/Sidebar). The frontend writes this path to `~/.omilearn_config.json`. On startup, the FastAPI backend boots the SQLite database directly inside this cloud folder, allowing native desktop clients to sync the database implicitly!
+*   **Phase 6 (SQLite Persistence):** Implemented `SQLAlchemy` to store Flashcard generation and SM-2 review states in a local SQLite database (`workflow_local.db`).
+*   **Phase 7 (Native Cloud Sync):** Bypassed complex OAuth integrations. Users select their local Google Drive or OneDrive folder via an Electron native dialog (`CloudSyncModal`/Sidebar). The frontend writes this path to `~/.workflow_config.json`. On startup, the FastAPI backend boots the SQLite database directly inside this cloud folder, allowing native desktop clients to sync the database implicitly!
 *   **Phase 8 (Document Library):** Uploaded PDFs are parsed locally via `pdfplumber`. To keep the database size minimal (for lightning-fast cloud sync), we only save the extracted text to the `documents` SQLite table, not the binary PDF. The `DocumentViewer` dynamically fetches and displays the active document.
 *   **Phase 9 (Automated Quizzes):** Integrated the NLP Quiz Generator with the UI (`TakeQuizModal.jsx`). Users can generate 5-question multiple-choice exams from their documents. The frontend automatically grades the exam and saves the score to the new `quiz_scores` SQLite table.
 
@@ -45,7 +45,7 @@ We recently completed the final integration of the NLP algorithms into the React
 **Current Status:** The core offline application is completely functionally robust. The desktop frontend successfully talks to the frozen Python backend, processes PDFs natively, generates data via NLP, persists to an implicit cloud-sync SQLite DB, and allows local data exports.
 
 **Potential Next Steps:**
-1. **Testing & QA:** Thoroughly test the "Cloud Sync" (Google Drive/OneDrive folder selection) on different devices to ensure the `~/.omilearn_config.json` correctly updates the database target path.
+1. **Testing & QA:** Thoroughly test the "Cloud Sync" (Google Drive/OneDrive folder selection) on different devices to ensure the `~/.workflow_config.json` correctly updates the database target path.
 2. **LLM Engine (Gemini):** Currently, the "Engine Mode" toggle in the UI visually works, but the backend is only wired to the deterministic NLP fallback. You could hook up the actual Google GenAI SDK calls in the `/api/...` endpoints when the Gemini mode is active.
 3. **UI Polish:** Fine-tune animations, hover states, and spacing in the modals using TailwindCSS to elevate the "premium" feel.
 4. **Build & Release Pipelines:** Test the macOS `.app` build using Electron Builder or Electron Forge to package the UI and backend together for actual distribution.

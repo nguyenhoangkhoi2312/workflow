@@ -1,0 +1,320 @@
+diff --git a/backend/db/models.py b/backend/db/models.py
+index a1a2a3d..b2b3b4c 100644
+--- a/backend/db/models.py
++++ b/backend/db/models.py
+@@ -13,6 +13,10 @@ class Flashcard(Base):
+     # SM-2 Spaced Repetition Fields
+     interval = Column(Integer, default=1)
+     ease = Column(Float, default=2.5)
+     repetitions = Column(Integer, default=0)
+     due_date = Column(Date, default=datetime.date.today)
++    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
++    document_id = Column(Integer, ForeignKey("documents.id"), nullable=True)
++    
++    project = relationship("Project")
++    document = relationship("Document")
+ 
+ class Roadmap(Base):
+@@ -122,12 +126,14 @@ class QuizScore(Base):
+ class ChatMessage(Base):
+     __tablename__ = "chat_messages"
+ 
+     id = Column(Integer, primary_key=True, index=True)
+-    project_id = Column(Integer, ForeignKey("projects.id"))
++    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
++    document_id = Column(Integer, ForeignKey("documents.id"), nullable=True)
+     role = Column(String) # user or assistant
+     content = Column(String)
+     persona = Column(String, nullable=True)
+     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+ 
+     project = relationship("Project", back_populates="messages")
++    document = relationship("Document")
+ 
+ class Artifact(Base):
+     __tablename__ = "artifacts"
+ 
+     id = Column(Integer, primary_key=True, index=True)
+-    project_id = Column(Integer, ForeignKey("projects.id"))
++    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
++    document_id = Column(Integer, ForeignKey("documents.id"), nullable=True)
+     type = Column(String) # 'quiz', 'notes', 'concept_map'
+     title = Column(String)
+     content = Column(String) # JSON payload or markdown
+     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+ 
+     project = relationship("Project", back_populates="artifacts")
++    document = relationship("Document")
+diff --git a/backend/db/crud.py b/backend/db/crud.py
+index c1c2c3d..d2d3d4c 100644
+--- a/backend/db/crud.py
++++ b/backend/db/crud.py
+@@ -1,10 +1,14 @@
+ from sqlalchemy.orm import Session
+ from . import models
+ import datetime
+ 
+-def get_flashcards(db: Session, skip: int = 0, limit: int = 100):
+-    return db.query(models.Flashcard).offset(skip).limit(limit).all()
++def get_flashcards(db: Session, project_id: int = None, document_id: int = None, skip: int = 0, limit: int = 100):
++    query = db.query(models.Flashcard)
++    if project_id is not None:
++        query = query.filter(models.Flashcard.project_id == project_id)
++    if document_id is not None:
++        query = query.filter(models.Flashcard.document_id == document_id)
++    return query.offset(skip).limit(limit).all()
+ 
+ def create_roadmap(db: Session, project_id: int, items: list):
+     db_roadmap = models.Roadmap(project_id=project_id)
+@@ -24,14 +28,20 @@ def get_roadmap(db: Session, project_id: int):
+ 
+-def get_due_flashcards(db: Session):
++def get_due_flashcards(db: Session, project_id: int = None, document_id: int = None):
+     today = datetime.date.today()
+-    return db.query(models.Flashcard).filter(models.Flashcard.due_date <= today).all()
++    query = db.query(models.Flashcard).filter(models.Flashcard.due_date <= today)
++    if project_id is not None:
++        query = query.filter(models.Flashcard.project_id == project_id)
++    if document_id is not None:
++        query = query.filter(models.Flashcard.document_id == document_id)
++    return query.all()
+ 
+-def create_flashcard(db: Session, front: str, back: str):
+-    db_flashcard = models.Flashcard(front=front, back=back)
++def create_flashcard(db: Session, front: str, back: str, project_id: int = None, document_id: int = None):
++    db_flashcard = models.Flashcard(front=front, back=back, project_id=project_id, document_id=document_id)
+     db.add(db_flashcard)
+     db.commit()
+     db.refresh(db_flashcard)
+     return db_flashcard
+ 
+@@ -115,19 +125,27 @@ def delete_project(db: Session, project_id: int) -> bool:
+-def save_chat_message(db: Session, project_id: int, role: str, content: str, persona: str = None):
+-    msg = models.ChatMessage(project_id=project_id, role=role, content=content, persona=persona)
++def save_chat_message(db: Session, project_id: int = None, role: str = "", content: str = "", persona: str = None, document_id: int = None):
++    msg = models.ChatMessage(project_id=project_id, document_id=document_id, role=role, content=content, persona=persona)
+     db.add(msg)
+     db.commit()
+     db.refresh(msg)
+     return msg
+ 
+-def create_artifact(db: Session, project_id: int, type: str, title: str, content: str):
+-    db_artifact = models.Artifact(project_id=project_id, type=type, title=title, content=content)
++def create_artifact(db: Session, project_id: int = None, type: str = "", title: str = "", content: str = "", document_id: int = None):
++    db_artifact = models.Artifact(project_id=project_id, document_id=document_id, type=type, title=title, content=content)
+     db.add(db_artifact)
+     db.commit()
+     db.refresh(db_artifact)
+     return db_artifact
+ 
+-def get_artifacts(db: Session, project_id: int):
+-    return db.query(models.Artifact).filter(models.Artifact.project_id == project_id).order_by(models.Artifact.created_at.desc()).all()
++def get_artifacts(db: Session, project_id: int = None, document_id: int = None):
++    query = db.query(models.Artifact)
++    if project_id is not None:
++        query = query.filter(models.Artifact.project_id == project_id)
++    if document_id is not None:
++        query = query.filter(models.Artifact.document_id == document_id)
++    return query.order_by(models.Artifact.created_at.desc()).all()
+ 
+-def get_chat_history(db: Session, project_id: int):
+-    return db.query(models.ChatMessage).filter(models.ChatMessage.project_id == project_id).order_by(models.ChatMessage.created_at).all()
++def get_chat_history(db: Session, project_id: int = None, document_id: int = None):
++    query = db.query(models.ChatMessage)
++    if project_id is not None:
++        query = query.filter(models.ChatMessage.project_id == project_id)
++    if document_id is not None:
++        query = query.filter(models.ChatMessage.document_id == document_id)
++    return query.order_by(models.ChatMessage.created_at).all()
+diff --git a/backend/main.py b/backend/main.py
+index e1e2e3d..f2f3f4c 100644
+--- a/backend/main.py
++++ b/backend/main.py
+@@ -46,8 +46,31 @@ from db import models, crud
+ from db.database import engine, get_db
+ 
++# Startup schema-patching routine
++def patch_database_schema(engine):
++    from sqlalchemy import inspect
++    inspector = inspect(engine)
++    
++    with engine.begin() as conn:
++        if "chat_messages" in inspector.get_table_names():
++            cols = [c["name"] for c in inspector.get_columns("chat_messages")]
++            if "document_id" not in cols:
++                conn.execute("ALTER TABLE chat_messages ADD COLUMN document_id INTEGER REFERENCES documents(id)")
++                
++        if "artifacts" in inspector.get_table_names():
++            cols = [c["name"] for c in inspector.get_columns("artifacts")]
++            if "document_id" not in cols:
++                conn.execute("ALTER TABLE artifacts ADD COLUMN document_id INTEGER REFERENCES documents(id)")
++                
++        if "flashcards" in inspector.get_table_names():
++            cols = [c["name"] for c in inspector.get_columns("flashcards")]
++            if "project_id" not in cols:
++                conn.execute("ALTER TABLE flashcards ADD COLUMN project_id INTEGER REFERENCES projects(id)")
++            if "document_id" not in cols:
++                conn.execute("ALTER TABLE flashcards ADD COLUMN document_id INTEGER REFERENCES documents(id)")
++
++patch_database_schema(engine)
+ # Create DB tables
+ models.Base.metadata.create_all(bind=engine)
+ 
+@@ -100,12 +123,13 @@ class ChatRequest(BaseModel):
+     message: str
+     context: str | None = None
+     api_key: str | None = None
+     conversation_id: str = "default-session"
+     project_id: int | None = None
++    document_id: int | None = None
+     persona: str | None = "friendly"
+ 
+@@ -124,12 +148,14 @@ class UserLogin(BaseModel):
+ class UrlIngestRequest(BaseModel):
+     url: str
+     project_id: int | None = None
+ 
+ class FlashcardRequest(BaseModel):
+     topic_or_text: str
++    project_id: int | None = None
++    document_id: int | None = None
+     api_key: str | None = None
+ 
+@@ -443,12 +469,17 @@ def get_project_collaboration_status(project_id: int, db: Session = Depends(get_
+ @app.get("/api/projects/{project_id}/artifacts")
+ async def get_project_artifacts(project_id: int, db: Session = Depends(get_db)):
+     artifacts = crud.get_artifacts(db, project_id=project_id)
+     return [{"id": a.id, "type": a.type, "title": a.title, "content": a.content, "created_at": a.created_at} for a in artifacts]
+ 
++@app.get("/api/documents/{document_id}/artifacts")
++async def get_document_artifacts(document_id: int, db: Session = Depends(get_db)):
++    artifacts = crud.get_artifacts(db, document_id=document_id)
++    return [{"id": a.id, "type": a.type, "title": a.title, "content": a.content, "created_at": a.created_at} for a in artifacts]
++
+ # --- AI Engine ---
+@@ -520,11 +551,11 @@ PERSONA_PROMPTS = {
+ @app.post("/api/chat")
+ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
+-    if request.project_id:
+-        crud.save_chat_message(db, request.project_id, role="user", content=request.message, persona=request.persona)
++    if request.project_id or request.document_id:
++        crud.save_chat_message(db, project_id=request.project_id, role="user", content=request.message, persona=request.persona, document_id=request.document_id)
+ 
+     context = request.context or ""
+     if request.project_id and not context:
+         project = crud.get_project(db, request.project_id)
+         if project:
+             sources = [doc.content for doc in project.documents if doc.content]
+             context = "\n\n---\n\n".join(sources)[:30000]
++    elif request.document_id and not context:
++        doc = db.query(models.Document).filter(models.Document.id == request.document_id).first()
++        if doc and doc.content:
++            context = doc.content[:30000]
+             
+     persona_prompt = PERSONA_PROMPTS.get(request.persona, PERSONA_PROMPTS["Gia sư thân thiện"])
+@@ -547,11 +582,11 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
+     if not response_text:
+         response_text = offline_doc_answer(request.message, db, context)
+ 
+-    if request.project_id:
+-        crud.save_chat_message(db, request.project_id, role="assistant", content=response_text, persona=request.persona)
++    if request.project_id or request.document_id:
++        crud.save_chat_message(db, project_id=request.project_id, role="assistant", content=response_text, persona=request.persona, document_id=request.document_id)
+ 
+     return {"response": response_text}
+ 
+ @app.get("/api/projects/{project_id}/messages")
+ async def get_project_messages_api(project_id: int, db: Session = Depends(get_db)):
+     messages = crud.get_chat_history(db, project_id)
+@@ -558,6 +593,17 @@ async def get_project_messages_api(project_id: int, db: Session = Depends(get_db
+     return {
+         "messages": [
+             {
+                 "id": m.id, "role": m.role, "content": m.content, 
+                 "persona": m.persona, "created_at": m.created_at.isoformat()
+             } for m in messages
+         ]
+     }
++
++@app.get("/api/documents/{document_id}/messages")
++async def get_document_messages_api(document_id: int, db: Session = Depends(get_db)):
++    messages = crud.get_chat_history(db, document_id=document_id)
++    return {
++        "messages": [
++            {
++                "id": m.id, "role": m.role, "content": m.content, 
++                "persona": m.persona, "created_at": m.created_at.isoformat()
++            } for m in messages
++        ]
++    }
+ 
+ @app.post("/api/generate_flashcards")
+ async def generate_flashcards(request: FlashcardRequest, db: Session = Depends(get_db)):
+     def _save(cards):
+         out = []
+         for c in cards:
+-            db_card = crud.create_flashcard(db, front=c.get("front", ""), back=c.get("back", ""))
++            db_card = crud.create_flashcard(db, front=c.get("front", ""), back=c.get("back", ""), project_id=request.project_id, document_id=request.document_id)
+             out.append({
+                 "id": db_card.id, "front": db_card.front, "back": db_card.back,
+                 "interval": db_card.interval, "ease": db_card.ease,
+                 "repetitions": db_card.repetitions, "due_date": db_card.due_date.isoformat()
+             })
+         return out
+@@ -661,10 +701,11 @@ def ingest_url(request: UrlIngestRequest, db: Session = Depends(get_db)):
+ @app.post("/api/documents/ingest_url")
++@app.post("/api/documents/url")
+ def ingest_url(request: UrlIngestRequest, db: Session = Depends(get_db)):
+     url = request.url
+@@ -881,11 +922,11 @@ async def generate_quiz_endpoint(request: TopicRequest, db: Session = Depends(ge
+             config = LocalAgentConfig(api_key=current_key, model="gemini-3.1-flash-lite", response_schema=QuizSchema, capabilities=FAST_CAPS)
+             prompt = f"Generate a multiple-choice quiz (5 questions), in the SAME language as the text: '{text_to_process}'. Each question must have 4 options, a correct option ID, and an explanation."
+             data = await agent_run(config, prompt)
+             if data and data.get("questions"):
+-                if request.project_id:
+-                    crud.create_artifact(db, project_id=request.project_id, type="quiz", title=data.get("title", "Bài Trắc Nghiệm"), content=json.dumps(data))
++                if request.project_id or request.document_id:
++                    crud.create_artifact(db, project_id=request.project_id, type="quiz", title=data.get("title", "Bài Trắc Nghiệm"), content=json.dumps(data), document_id=request.document_id)
+                 return data
+         except Exception as e:
+             print(f"[quiz] AI failed, falling back to offline: {e}")
+     from nlp.quizzes import extract_quiz
+     quiz_data = extract_quiz(text_to_process, num_questions=5)
+-    if request.project_id:
+-        crud.create_artifact(db, project_id=request.project_id, type="quiz", title=quiz_data.get("title", "Bài Trắc Nghiệm"), content=json.dumps(quiz_data))
++    if request.project_id or request.document_id:
++        crud.create_artifact(db, project_id=request.project_id, type="quiz", title=quiz_data.get("title", "Bài Trắc Nghiệm"), content=json.dumps(quiz_data), document_id=request.document_id)
+     return quiz_data
+@@ -920,5 +961,5 @@ async def generate_exam_prep_endpoint(request: TopicRequest, db: Session = Depen
+             data = await agent_run(config, prompt)
+             if data and data.get("markdown_content"):
+-                if request.project_id:
+-                    crud.create_artifact(db, project_id=request.project_id, type="examprep", title=data.get("title", "Tài liệu phòng thi"), content=json.dumps(data))
++                if request.project_id or request.document_id:
++                    crud.create_artifact(db, project_id=request.project_id, type="examprep", title=data.get("title", "Tài liệu phòng thi"), content=json.dumps(data), document_id=request.document_id)
+                 return data
+@@ -941,5 +982,5 @@ async def generate_study_plan_endpoint(request: TopicRequest, db: Session = Depe
+             data = await agent_run(config, prompt)
+             if data and data.get("markdown_content"):
+-                if request.project_id:
+-                    crud.create_artifact(db, project_id=request.project_id, type="studyplan", title=data.get("title", "Giáo Án"), content=json.dumps(data))
++                if request.project_id or request.document_id:
++                    crud.create_artifact(db, project_id=request.project_id, type="studyplan", title=data.get("title", "Giáo Án"), content=json.dumps(data), document_id=request.document_id)
+                 return data
+@@ -1016,10 +1057,11 @@ async def generate_notes(request: TopicRequest):
+ 
+-@app.get("/api/flashcards/due")
+-async def get_due_flashcards(db: Session = Depends(get_db)):
+-    cards = crud.get_due_flashcards(db)
++@app.get("/api/flashcards/due")
++async def get_due_flashcards(project_id: int | None = None, document_id: int | None = None, db: Session = Depends(get_db)):
++    cards = crud.get_due_flashcards(db, project_id=project_id, document_id=document_id)
+     return {"flashcards": [
+         {
+             "id": c.id, "front": c.front, "back": c.back,
+             "interval": c.interval, "ease": c.ease, 
+-            "repetitions": c.repetitions, "due_date": c.due_date.isoformat()
++            "repetitions": c.repetitions, "due_date": c.due_date.isoformat(),
++            "project_id": c.project_id, "document_id": c.document_id
+         } for c in cards
+     ]}
